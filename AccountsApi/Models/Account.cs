@@ -17,9 +17,9 @@ namespace AccountsApi.Models {
 
         public SexEnum Sex { get; set; }
 
-        public DateTime Birth { get; set; }
+        public long Birth { get; set; }
 
-        public DateTime Joined { get; set; }
+        public long Joined { get; set; }
 
         public string Status { get; set; }
 

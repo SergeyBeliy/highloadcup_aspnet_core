@@ -1,4 +1,4 @@
-namespace AccountsApi.Controllers.Infrastructure {
+namespace AccountsApi.Infrastructure {
     public interface IDatabase {
         
     }

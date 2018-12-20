@@ -6,6 +6,6 @@ namespace AccountsApi.Models
     {
         public long Id { get; set;}
 
-        public DateTime Ts { get; set;}
+        public long Ts { get; set;}
     }
 }

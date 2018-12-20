@@ -1,3 +1,4 @@
 AccountsApi/bin/*
 AccountsApi/obj/*
 tmp/data.zip
+tmp/data/data.zip
