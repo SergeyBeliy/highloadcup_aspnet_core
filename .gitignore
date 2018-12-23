@@ -1,4 +1,8 @@
 AccountsApi/bin/*
 AccountsApi/obj/*
+AccountsApi/out/*
+AccountsApi/unzippedData/*
 tmp/data.zip
 tmp/data/data.zip
+AccountsApi.Tests/bin/*
+AccountsApi.Tests/obj/*

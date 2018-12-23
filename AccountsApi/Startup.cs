@@ -16,8 +16,7 @@ using ILogger = AccountsApi.Infrastructure.ILogger;
 
 namespace AccountsApi {
     public class Startup {
-        private string InitDataPath = "/app/tmp/data/data.zip";
-        private string InitDataPathDev = "/tmp/data/data.zip";
+        private string InitDataPath = "../tmp/data/data.zip";
         public Startup (IConfiguration configuration) {
             Configuration = configuration;
         }
