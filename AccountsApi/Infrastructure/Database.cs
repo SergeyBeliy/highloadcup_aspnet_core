@@ -16,8 +16,11 @@ namespace AccountsApi.Infrastructure {
         private ConcurrentDictionary<long, Account> _accounts = new ConcurrentDictionary<long, Account> ();
 
         private ILogger Logger { get; set; }
-        public Database (ILogger logger) {
+
+        private IIndexer Indexer { get; set; }
+        public Database (ILogger logger, IIndexer indexer) {
             Logger = logger;
+            Indexer = indexer;
         }
 
         public void InitData (string initialDataPath) {
@@ -25,6 +28,7 @@ namespace AccountsApi.Infrastructure {
             Task.Run (() => {
                 UnzipFile (initialDataPath);
                 ParseFiles ();
+                IndexAccounts ();
             }).ContinueWith ((res) => {
                 _isInit = true;
                 Logger.Debug ($"Initialization complete");
@@ -34,9 +38,9 @@ namespace AccountsApi.Infrastructure {
         private void UnzipFile (string zipPath) {
             Logger.Debug ($"Try unzip file: {zipPath}");
             Logger.Debug ($"Current directory: { Directory.GetCurrentDirectory()}");
-            var items = Directory.EnumerateFileSystemEntries(Directory.GetCurrentDirectory());
-            foreach(var item in items) {
-                Logger.Debug($"{item}");
+            var items = Directory.EnumerateFileSystemEntries (Directory.GetCurrentDirectory ());
+            foreach (var item in items) {
+                Logger.Debug ($"{item}");
             }
             try {
                 if (Directory.Exists (UnzipperFolderName))
@@ -69,5 +73,19 @@ namespace AccountsApi.Infrastructure {
 
         }
 
+        private void IndexAccounts () {
+            Logger.Debug ($"Begin index accounts..");
+            foreach (var account in _accounts) {
+                try {
+                    Indexer.Put (account.Value);
+                } catch (Exception ex) {
+                    Logger.Error ($"Index account {account.Value.Id} error", ex);
+                }
+            }
+            Logger.Debug ($"Complete index accounts");
+        }
+        public void Put (Account account) {
+            Indexer.Put (account);
+        }
     }
 }

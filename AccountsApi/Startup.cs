@@ -27,7 +27,7 @@ namespace AccountsApi {
         public void ConfigureServices (IServiceCollection services) {
             services.AddMvc().SetCompatibilityVersion (CompatibilityVersion.Version_2_2);
             services.AddTransient(typeof(ILogger), typeof(Logger));
-            services.AddSingleton(typeof(IDatabase), GetDatabaseService(new Logger()));
+            services.AddSingleton(typeof(IDatabase), GetDatabaseService(new Logger(), new Indexer()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -43,8 +43,8 @@ namespace AccountsApi {
             app.UseMvc ();
         }
 
-        private IDatabase GetDatabaseService(ILogger logger){
-            var database = new Database(logger);
+        private IDatabase GetDatabaseService(ILogger logger, IIndexer indexer){
+            var database = new Database(logger, indexer);
             database.InitData(InitDataPath);
             return database;
         }

@@ -36,7 +36,7 @@ namespace AccountsApi.Infrastructure.Indexes {
         }
 
         private string[] GetValues (Account account) {
-            return account.Interests;
+            return account.Interests??new string[0];
         }
 
         private IEnumerable<long> GetAny (string value) {
