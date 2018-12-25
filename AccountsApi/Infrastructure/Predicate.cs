@@ -13,5 +13,6 @@ namespace AccountsApi.Infrastructure
         year,
         now,
         code,
+        contains,
     }
 }
