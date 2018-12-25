@@ -2,23 +2,29 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using AccountsApi.Infrastructure;
 using AccountsApi.Models;
 
-namespace AccountsApi.Infrastructure {
+namespace AccountsApi.Index.Infrastructure {
     public class StringIndex : IndexBase {
 
         public StringIndex (string fieldName) : base (fieldName) { }
 
         public ConcurrentDictionary<string, List<long>> Values { get; private set; } = new ConcurrentDictionary<string, List<long>> ();
 
-        public override IEnumerable<long> GetIds (string value, Predicate predicate, int max = 20) {
+        public override Predicate[] SupportPredicates => 
+            new Predicate[]{Predicate.eq, Predicate.neq, Predicate.any, Predicate.@null};
+
+        public override IEnumerable<long> GetIds (string value, Predicate predicate) {
             switch (predicate) {
                 case Predicate.eq:
-                    return GetEq (value, max);
+                    return GetEq (value);
                 case Predicate.neq:
-                    return GetNeq (value, max);
+                    return GetNeq (value);
                 case Predicate.any:
-                    return GetAny (value, max);
+                    return GetAny (value);
+                case Predicate.@null:
+                    return GetNull ();
                 default:
                     throw new NotSupportedException ($"Predicate {predicate} not supports");
             }
@@ -26,7 +32,7 @@ namespace AccountsApi.Infrastructure {
         }
 
         public override void Put (Account account) {
-            var value = GetValue (account);
+            var value = GetValue (account) ?? string.Empty;
             if (!Values.ContainsKey (value)) {
                 Values[value] = new List<long> ();
             }
@@ -63,42 +69,46 @@ namespace AccountsApi.Infrastructure {
             }
 
             if (FieldName.Equals (nameof (account.Status), StringComparison.OrdinalIgnoreCase)) {
-                return account.Status.ToString ();
+                return account.Status;
             }
 
             throw new Exception ("Property not found");
         }
 
-        private IEnumerable<long> GetEq (string value, int max) {
+        private IEnumerable<long> GetEq (string value) {
             if (Values.ContainsKey (value)) {
-                return Values[value].Take(max).ToArray ();
+                return Values[value];
             }
             return new long[] { };
         }
-        private IEnumerable<long> GetNeq (string value, int max) {
-            int counter = 0;
+
+        private IEnumerable<long> GetNeq (string value) {
+            var res = new List<long> ();
             foreach (var item in Values) {
                 if (item.Key != value) {
-                    foreach(var id in item.Value){
-                        if(counter++ > max) yield break;
-                        yield return id;
-                    }
+                    res.AddRange (item.Value);
                 }
             }
+            return res.ToArray ();
         }
 
-        private IEnumerable<long> GetAny (string value, int max) {
-            int counter = 0;
-            var valuesToFind = value.Split(",");
+        private IEnumerable<long> GetAny (string value) {
+            var valuesToFind = value.Split (",");
+            var res = new List<long> ();
             foreach (var item in Values) {
-                if (valuesToFind.Any(v => v == item.Key)) {
-                    foreach(var id in item.Value){
-                        if(counter++ > max) yield break;
-                        yield return id;
-                    }
+                if (valuesToFind.Any (v => v == item.Key)) {
+                    res.AddRange (item.Value);
                 }
             }
+            return res.ToArray ();
         }
-    
+
+        private IEnumerable<long> GetNull () {
+            if (Values.ContainsKey (string.Empty)) {
+                return Values[string.Empty];
+            }
+            return new long[] { };
+        }
+
     }
 }
