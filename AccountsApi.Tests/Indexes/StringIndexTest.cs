@@ -67,8 +67,11 @@ namespace Tests
             actual = target.GetIds("Пеныкавич", Predicate.neq);
             Assert.AreEqual(0, actual.Count());
 
-             actual = target.GetIds(string.Empty, Predicate.@null);
+            actual = target.GetIds("1", Predicate.@null);
             Assert.AreEqual(0, actual.Count());
+
+            actual = target.GetIds("0", Predicate.@null);
+            Assert.AreEqual(1, actual.Count());
 
             actual = target.GetIds("Пеныкавич,not_exists", Predicate.neq);
             Assert.AreEqual(10000, actual.First());
@@ -76,7 +79,7 @@ namespace Tests
             target = new StringIndex("status");
             target.Put(_account);
 
-            actual = target.GetIds(string.Empty, Predicate.@null);
+            actual = target.GetIds("1", Predicate.@null);
             Assert.AreEqual(10000, actual.First());
         }
     }

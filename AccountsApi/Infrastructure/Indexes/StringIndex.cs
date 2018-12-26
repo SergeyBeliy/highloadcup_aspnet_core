@@ -24,7 +24,7 @@ namespace AccountsApi.Index.Infrastructure {
                 case Predicate.any:
                     return GetAny (value);
                 case Predicate.@null:
-                    return GetNull ();
+                    return GetNull (value);
                 default:
                     throw new NotSupportedException ($"Predicate {predicate} not supports");
             }
@@ -103,11 +103,19 @@ namespace AccountsApi.Index.Infrastructure {
             return res.ToArray ();
         }
 
-        private IEnumerable<long> GetNull () {
-            if (Values.ContainsKey (string.Empty)) {
-                return Values[string.Empty];
+        private IEnumerable<long> GetNull (string value) {
+            switch (value) {
+                case "0":
+                    return Values.Where(k => k.Key != string.Empty).SelectMany(s => s.Value);
+                case "1":
+                    if (Values.ContainsKey (string.Empty)) {
+                        return Values[string.Empty];
+                    }
+                    return new long[] { };
+                default:
+                    throw new NotSupportedException ($"Value {value} not supports");
             }
-            return new long[] { };
+
         }
 
     }
