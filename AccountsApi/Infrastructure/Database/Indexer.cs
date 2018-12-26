@@ -21,6 +21,7 @@ namespace AccountsApi.Database.Infrastructure {
             Indexes["birth"] = new IndexBase[] { new DateOrderIndex ("birth"), new DateYearIndex ("birth") };
             Indexes["interests"] = new IndexBase[] { new StringArrayIndex ("interests") };
             Indexes["premium"] = new IndexBase[] { new PremiumIndex ("premium") };
+            Indexes["likes"] = new IndexBase[] { new LikesIndex ("likes") };
         }
       
         public Dictionary<string, IndexBase[]> Indexes { get; private set; } = new Dictionary<string, IndexBase[]> ();
