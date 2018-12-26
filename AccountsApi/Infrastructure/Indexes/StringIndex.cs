@@ -65,7 +65,7 @@ namespace AccountsApi.Index.Infrastructure {
             }
 
             if (FieldName.Equals (nameof (account.Sex), StringComparison.OrdinalIgnoreCase)) {
-                return account.Sex.ToString ();
+                return account.Sex.ToString ().ToLower();
             }
 
             if (FieldName.Equals (nameof (account.Status), StringComparison.OrdinalIgnoreCase)) {

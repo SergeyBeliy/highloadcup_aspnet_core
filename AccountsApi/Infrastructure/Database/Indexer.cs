@@ -1,9 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using AccountsApi.Index.Infrastructure;
+using AccountsApi.Infrastructure.Database;
+using AccountsApi.Infrastructure.Helpers;
 using AccountsApi.Infrastructure.Indexes;
 using AccountsApi.Models;
 
-namespace AccountsApi.Infrastructure {
+namespace AccountsApi.Database.Infrastructure {
     public class Indexer : IIndexer {
 
         public Indexer () {
@@ -21,15 +24,24 @@ namespace AccountsApi.Infrastructure {
       
         public Dictionary<string, IndexBase[]> Indexes { get; private set; } = new Dictionary<string, IndexBase[]> ();
 
-        public long[] Get (string name, string value) {
-            throw new System.NotImplementedException ();
-        }
-
         public void Put (Account account) {
             foreach(var indexes in Indexes){
                 foreach(var index in indexes.Value)
                     index.Put(account);
             }
+        }
+
+        public long[] QueryIndexes(Query query)
+        {
+            var res = new List<long[]>();
+            foreach(var queryItem in query.Items){
+                var indexes = Indexes[queryItem.FieldName];
+                foreach(var index in indexes){
+                    if(index.SupportPredicates.Contains(queryItem.Predicate))
+                        res.Add(index.GetIds(queryItem.Value, queryItem.Predicate).ToArray());
+                }             
+            }
+            return ArrayMergeHelper.Merge(res.ToArray()).OrderByDescending(id => id).Take(query.Limit).ToArray();
         }
     }
 }

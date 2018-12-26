@@ -5,10 +5,11 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
 using AccountsApi.Infrastructure;
+using AccountsApi.Infrastructure.Database;
 using AccountsApi.Models;
 using Newtonsoft.Json;
 
-namespace AccountsApi.Infrastructure {
+namespace AccountsApi.Database.Infrastructure {
     public class Database : IDatabase {
         private const string UnzipperFolderName = "unzippedData";
         private bool _isInit = false;
@@ -86,6 +87,14 @@ namespace AccountsApi.Infrastructure {
         }
         public void Put (Account account) {
             Indexer.Put (account);
+        }
+
+        public IEnumerable<Account> Query(Query query)
+        {
+           var ids = Indexer.QueryIndexes(query);
+           foreach(var id in ids){
+               yield return _accounts[id];
+           }
         }
     }
 }

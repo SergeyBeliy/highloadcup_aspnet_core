@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AccountsApi.Database.Infrastructure;
 using AccountsApi.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using ILogger = AccountsApi.Infrastructure.ILogger;
 
 namespace AccountsApi {
@@ -25,9 +27,13 @@ namespace AccountsApi {
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices (IServiceCollection services) {
-            services.AddMvc().SetCompatibilityVersion (CompatibilityVersion.Version_2_2);
-            services.AddTransient(typeof(ILogger), typeof(Logger));
-            services.AddSingleton(typeof(IDatabase), GetDatabaseService(new Logger(), new Indexer()));
+            services.AddMvc ().SetCompatibilityVersion (CompatibilityVersion.Version_2_2);
+            services.AddMvc ()
+                .AddJsonOptions (options => {
+                    options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+                });
+            services.AddTransient (typeof (ILogger), typeof (Logger));
+            services.AddSingleton (typeof (IDatabase), GetDatabaseService (new Logger (), new Indexer ()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -43,9 +49,9 @@ namespace AccountsApi {
             app.UseMvc ();
         }
 
-        private IDatabase GetDatabaseService(ILogger logger, IIndexer indexer){
-            var database = new Database(logger, indexer);
-            database.InitData(InitDataPath);
+        private IDatabase GetDatabaseService (ILogger logger, IIndexer indexer) {
+            var database = new AccountsApi.Database.Infrastructure.Database (logger, indexer);
+            database.InitData (InitDataPath);
             return database;
         }
     }

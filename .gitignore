@@ -6,3 +6,4 @@ tmp/data.zip
 tmp/data/data.zip
 AccountsApi.Tests/bin/*
 AccountsApi.Tests/obj/*
+tmp/data/options.txt
