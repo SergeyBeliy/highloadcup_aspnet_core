@@ -3,8 +3,9 @@ using System;
 namespace AccountsApi.Models {
     public class Account {
         public long Id { get; set; }
+        
         public string SName { get; set; }
-
+        
         public string FName { get; set; }
 
         public string Country { get; set; }

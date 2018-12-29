@@ -1,0 +1,40 @@
+version: '3.4'
+
+networks:
+  dockerapi-dev:
+    driver: bridge 
+
+services:
+  dockerapi:
+    image: aspnetapp:latest
+    depends_on:
+      - "postgres_image"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"     
+    environment:
+      DB_CONNECTION_STRING: "host=postgres_image;port=5432;database=accountsdb;username=accountsuser;password=accountsuser"
+    networks:
+      - aspnetapp-dev  
+  
+  postgres_image:
+    image: postgres:latest
+    ports:
+      - "5432"
+    restart: always
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+      - ./dbscripts/seed.sql :/docker-entrypoint-initdb.d/seed.sql
+    environment:
+      POSTGRES_USER: "accountsuser"
+      POSTGRES_PASSWORD: "accountsuser"
+      POSTGRES_DB: "accountsdb"
+    networks:
+      - dockerapi-dev
+volumes:
+  db_volume:
+         
+    
+     
