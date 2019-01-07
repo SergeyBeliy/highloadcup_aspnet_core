@@ -1,0 +1,190 @@
+FROM microsoft/dotnet:2.2-sdk AS build-env
+WORKDIR /app
+
+# Copy csproj and restore as distinct layers
+COPY /AccountsApi/*.csproj ./
+RUN dotnet restore
+
+# Copy everything else and build
+COPY ./AccountsApi/ ./
+RUN dotnet publish -c Release -o out
+
+FROM ubuntu
+
+WORKDIR /app
+COPY --from=build-env /app/out .
+
+# Copy test data
+COPY tmp/ /tmp/
+RUN ls -la /tmp/*
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg2 \
+        curl \
+        libc6 \
+        libgcc1 \
+        libgssapi-krb5-2 \
+        liblttng-ust0 \
+        libssl1.0.0 \
+        libstdc++6 \
+        zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Install ASP.NET Core
+ENV ASPNETCORE_VERSION 2.2.0
+
+RUN curl -SL --output aspnetcore.tar.gz https://dotnetcli.blob.core.windows.net/dotnet/aspnetcore/Runtime/$ASPNETCORE_VERSION/aspnetcore-runtime-$ASPNETCORE_VERSION-linux-x64.tar.gz \
+    && aspnetcore_sha512='26b3a52eb0b55eedaf731af1c1553653c73ed8e7c385119a421e33c8fca9691bae378904ee8f6fc13e1c621c9d64303ea5337750bb34e34d6ad0de788319f9bc' \
+    && echo "$aspnetcore_sha512  aspnetcore.tar.gz" | sha512sum -c - \
+    && mkdir -p /usr/share/dotnet \
+    && tar -zxf aspnetcore.tar.gz -C /usr/share/dotnet \
+    && rm aspnetcore.tar.gz \
+    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        dirmngr
+
+# Add the PostgreSQL PGP key to verify their Debian packages.
+# It should be the same key as https://www.postgresql.org/media/keys/ACCC4CF8.asc
+RUN apt-key adv --no-tty --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+
+# Add PostgreSQL's repository. It contains the most recent stable release
+#     of PostgreSQL, ``9.3``.
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+
+# Install ``python-software-properties``, ``software-properties-common`` and PostgreSQL 11.1
+#  There are some warnings (in red) that show up during the build. You can hide
+#  them by prefixing each apt-get statement with DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y software-properties-common postgresql postgresql-client postgresql-contrib
+
+# Note: The official Debian and Ubuntu images automatically ``apt-get clean``
+# after each ``apt-get``
+
+# Run the rest of the commands as the ``postgres`` user created by the ``postgres-9.3`` package when it was ``apt-get installed``
+USER postgres
+
+# Create a PostgreSQL role named ``docker`` with ``docker`` as the password and
+# then create a database `docker` owned by the ``docker`` role.
+# Note: here we use ``&&\`` to run commands one after the other - the ``\``
+#       allows the RUN command to span multiple lines.
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE USER accountsdb_user WITH LOGIN NOSUPERUSER INHERIT CREATEDB NOCREATEROLE REPLICATION PASSWORD 'Tester01';" 
+
+RUN locale
+#create database
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE DATABASE ""accountsDB"" \
+    WITH \
+    OWNER = accountsdb_user \
+    ENCODING = 'UTF8' \
+    LC_COLLATE = 'POSIX' \
+    LC_CTYPE = 'POSIX' \
+    TABLESPACE = pg_default \
+    CONNECTION LIMIT = -1 \
+    TEMPLATE template0; " 
+
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE SEQUENCE public.accounts_id_seq; ALTER SEQUENCE public.accounts_id_seq OWNER TO accountsdb_user;" 
+
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE SEQUENCE public.like_like_id_seq;ALTER SEQUENCE public.like_like_id_seq OWNER TO accountsdb_user;" 
+
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE SEQUENCE public.premium_id_seq;ALTER SEQUENCE public.premium_id_seq OWNER TO accountsdb_user;" 
+
+RUN    /etc/init.d/postgresql start &&\
+    psql --command "CREATE TABLE public.accounts \
+    ( \
+        id bigint NOT NULL DEFAULT nextval('accounts_id_seq'::regclass), \
+        sname character varying(50) COLLATE pg_catalog.""default"",\
+        fname character varying(50) COLLATE pg_catalog.""default"", \
+        country character varying(50) COLLATE pg_catalog.""default"", \
+        city character varying(50) COLLATE pg_catalog.""default"", \
+        phone character varying(16) COLLATE pg_catalog.""default"", \
+        email character varying(100) COLLATE pg_catalog.""default"", \
+        sex integer NOT NULL, \
+        birth bigint NOT NULL, \
+        joined bigint NOT NULL, \
+        status character varying(10) COLLATE pg_catalog.""default"", \
+        interests text[] COLLATE pg_catalog.""default"", \
+        CONSTRAINT ""PK_accounts"" PRIMARY KEY (id) \
+    ) \
+    WITH ( \
+        OIDS = FALSE \
+    ) \
+    TABLESPACE pg_default; \
+    ALTER TABLE public.accounts \
+        OWNER to accountsdb_user;  \
+    CREATE TABLE public.""like"" \
+    ( \
+        like_id bigint NOT NULL DEFAULT nextval('like_like_id_seq'::regclass), \
+        account_id bigint NOT NULL, \
+        id bigint NOT NULL, \
+        ts bigint NOT NULL, \
+        CONSTRAINT ""PK_like"" PRIMARY KEY (like_id), \
+        CONSTRAINT ""FK_like_accounts_account_id"" FOREIGN KEY (account_id) \
+            REFERENCES public.accounts (id) MATCH SIMPLE \
+            ON UPDATE NO ACTION \
+            ON DELETE CASCADE \
+    ) \
+    WITH ( \
+        OIDS = FALSE \
+    ) \
+    TABLESPACE pg_default; \
+    ALTER TABLE public.""like"" \
+        OWNER to accountsdb_user; \
+    CREATE INDEX ""IX_like_account_id"" \
+        ON public.""like"" USING btree \
+        (account_id) \
+        TABLESPACE pg_default;\ 
+        CREATE TABLE public.premium \
+        ( \
+            id bigint NOT NULL DEFAULT nextval('premium_id_seq'::regclass), \
+            account_id bigint NOT NULL, \
+            start bigint NOT NULL, \
+            finish bigint NOT NULL, \
+            CONSTRAINT ""PK_premium"" PRIMARY KEY (id), \
+            CONSTRAINT ""FK_premium_accounts_account_id"" FOREIGN KEY (account_id) \
+                REFERENCES public.accounts (id) MATCH SIMPLE \
+                ON UPDATE NO ACTION \
+                ON DELETE CASCADE \
+        ) \
+        WITH ( \
+            OIDS = FALSE \
+        ) \
+        TABLESPACE pg_default; \
+        ALTER TABLE public.premium \
+            OWNER to accountsdb_user; \
+        CREATE UNIQUE INDEX ""IX_premium_account_id"" \
+            ON public.premium USING btree \
+            (account_id) \
+            TABLESPACE pg_default;" 
+
+# Adjust PostgreSQL configuration so that remote connections to the
+# database are possible.
+RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/10/main/pg_hba.conf
+
+# And add ``listen_addresses`` to ``/etc/postgresql/9.3/main/postgresql.conf``
+RUN echo "listen_addresses='*'" >> /etc/postgresql/10/main/postgresql.conf
+
+# Expose the PostgreSQL port
+EXPOSE 5432
+
+# Add VOLUMEs to allow backup of config, logs and databases
+VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
+
+# Set the default command to run when starting the container
+CMD ["/usr/lib/postgresql/11/bin/postgres", "-D", "/var/lib/postgresql/10/main", "-c", "config_file=/etc/postgresql/10/main/postgresql.conf"]
+
+USER root
+
+ENV ASPNETCORE_URLS=http://+:80 \
+    # Enable detection of running in a container
+    DOTNET_RUNNING_IN_CONTAINER=true
+
+ENTRYPOINT ["dotnet", "AccountsApi.dll"]

@@ -5,10 +5,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using AccountsApi.Database.Infrastructure;
 using AccountsApi.Infrastructure;
+using AccountsApi.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,7 +20,7 @@ using ILogger = AccountsApi.Infrastructure.ILogger;
 
 namespace AccountsApi {
     public class Startup {
-        private string InitDataPath = "../tmp/data/data.zip";
+
         public Startup (IConfiguration configuration) {
             Configuration = configuration;
         }
@@ -28,16 +30,19 @@ namespace AccountsApi {
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices (IServiceCollection services) {
             services.AddMvc ().SetCompatibilityVersion (CompatibilityVersion.Version_2_2);
+            services.AddDbContext<AccountContext> (options =>
+                options.UseNpgsql (Configuration.GetConnectionString ("DefaultConnection")));
             services.AddMvc ()
                 .AddJsonOptions (options => {
                     options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
                 });
             services.AddTransient (typeof (ILogger), typeof (Logger));
-            services.AddSingleton (typeof (IDatabase), GetDatabaseService (new Logger (), new Indexer ()));
+
+            services.AddScoped (typeof (IDatabase), typeof (AccountsApi.Database.Infrastructure.Database));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure (IApplicationBuilder app, IHostingEnvironment env) {
+        public void Configure (IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider) {
             if (env.IsDevelopment ()) {
                 app.UseDeveloperExceptionPage ();
             } else {
@@ -49,10 +54,5 @@ namespace AccountsApi {
             app.UseMvc ();
         }
 
-        private IDatabase GetDatabaseService (ILogger logger, IIndexer indexer) {
-            var database = new AccountsApi.Database.Infrastructure.Database (logger, indexer);
-            database.InitData (InitDataPath);
-            return database;
-        }
     }
 }

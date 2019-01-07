@@ -34,7 +34,7 @@ namespace AccountsApi.Infrastructure
         }
 
         private string GetDate(){
-            return DateTime.Now.ToString("dd.MM.YYYY hh:mm:ss.fff");
+            return DateTime.Now.ToString("dd.MM.yyyy hh:mm:ss.fff");
         }
     }
 }

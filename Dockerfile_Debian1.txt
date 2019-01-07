@@ -106,9 +106,6 @@ RUN  /etc/init.d/postgresql start &&\
 
 USER root
 
+CMD ["/etc/init.d/postgresql start"]
 
-ENV PATH $PATH:/usr/lib/postgresql/9.6/bin
-ENV PGDATA /var/lib/postgresql/data
-
-CMD ["../etc/init.d/postgresql start"]
 ENTRYPOINT ["dotnet", "AccountsApi.dll"]
