@@ -55,10 +55,47 @@ namespace AccountsApi.Models {
         [Column ("interests")]
         public string[] Interests { get; set; }
 
+        [Column ("like_ids")]
+        public long[] LikeIds {
+            get {
+                if (Likes == null) {
+                    return new long[0];
+                }
+                return Likes.Select (s => s.Id).ToArray ();
+            }
+
+            set {
+                if (value == null) {
+                    Likes = null;
+                } else {
+                    Likes = value.Select(v => new LikeModel{Id = v}).ToArray();
+                } 
+            }
+        }
+
+        [Column ("like_tss")]
+        public long[] LikeTSs {
+            get {
+                if (Likes == null) {
+                    return new long[0];
+                }
+                return Likes.Select (s => s.Ts).ToArray ();
+            }
+            set {
+                if (value == null) {
+                    Likes = null;
+                } if( Likes != null && Likes.Length == value.Length) {
+                    for(var i =0; i<value.Length; i++){
+                        Likes[i].Ts = value[i];
+                    }
+                }
+            }
+        }
+
         [NotMapped]
         public LikeModel[] Likes { get; set; }
 
-        [Column (name: "likes", TypeName = "json[]")]
+        [NotMapped]
         public string[] LikesJson {
             get {
                 if (Likes == null) {
@@ -68,21 +105,46 @@ namespace AccountsApi.Models {
             }
 
             set {
-                Likes = value.Select(v => JsonConvert.DeserializeObject<LikeModel>(v)).ToArray();
+                Likes = value.Select (v => JsonConvert.DeserializeObject<LikeModel> (v)).ToArray ();
             }
         }
 
         [NotMapped]
         public PremiumModel Premium { get; set; }
 
-        [Column (name: "premium", TypeName = "json")]
-        public string PremiumJson {
+        [Column ("premium_start")]
+        public long? PremiumStart {
             get {
-                return JsonConvert.SerializeObject (Premium);
+                return Premium == null?(long?) null : SecondEpochConverter.ConvertTo (Premium.Start);
             }
+
             set {
-                Premium =  JsonConvert.DeserializeObject<PremiumModel>(value);
+                if (value.HasValue) {
+                    if (Premium == null)
+                        Premium = new PremiumModel ();
+                    Premium.Start = SecondEpochConverter.ConvertFrom (value.Value);
+                } else {
+                    Premium = null;
+                }
             }
         }
+
+        [Column ("premium_finish")]
+        public long? PremiumFinish {
+            get {
+                return Premium == null?(long?) null : SecondEpochConverter.ConvertTo (Premium.Finish);
+            }
+
+            set {
+                if (value.HasValue) {
+                    if (Premium == null)
+                        Premium = new PremiumModel ();
+                    Premium.Finish = SecondEpochConverter.ConvertFrom (value.Value);
+                } else {
+                    Premium = null;
+                }
+            }
+        }
+
     }
 }

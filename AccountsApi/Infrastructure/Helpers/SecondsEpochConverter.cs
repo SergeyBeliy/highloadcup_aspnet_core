@@ -15,12 +15,12 @@ namespace AccountsApi.Infrastructure.Helpers {
             return _epoch.AddSeconds ((long) reader.Value );
         }
 
-        public static DateTime ConvertFrom (double microseconds) {
+        public static DateTime ConvertFrom (long microseconds) {
             return _epoch.AddSeconds (microseconds);
         }
 
-        public static double ConvertTo (DateTime date) {
-            return ((date - _epoch).TotalSeconds);
+        public static long ConvertTo (DateTime date) {
+            return (long)((date - _epoch).TotalSeconds);
         }
     }
 }

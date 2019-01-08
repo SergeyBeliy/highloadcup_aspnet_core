@@ -20,8 +20,11 @@ namespace AccountsApi.Models {
             Premium = account.Premium;
         }
         public long Id { get; set; }
+
+        [JsonProperty ("sname")]
         public string SName { get; set; }
 
+        [JsonProperty ("fname")]
         public string FName { get; set; }
 
         public string Country { get; set; }
@@ -30,6 +33,7 @@ namespace AccountsApi.Models {
 
         public string Phone { get; set; }
 
+        [JsonProperty ("email")]
         public string EMail { get; set; }
 
         [JsonConverter (typeof (StringEnumConverter))]

@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AccountsApi.Migrations
 {
     [DbContext(typeof(AccountContext))]
-    [Migration("20190106233647_initial")]
+    [Migration("20190107005829_initial")]
     partial class initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -52,17 +52,21 @@ namespace AccountsApi.Migrations
                     b.Property<DateTime>("Joined")
                         .HasColumnName("joined");
 
-                    b.Property<string[]>("LikesJson")
-                        .HasColumnName("likes")
-                        .HasColumnType("json[]");
+                    b.Property<long[]>("LikeIds")
+                        .HasColumnName("like_ids");
+
+                    b.Property<long[]>("LikeTSs")
+                        .HasColumnName("like_tss");
 
                     b.Property<string>("Phone")
                         .HasColumnName("phone")
                         .HasMaxLength(16);
 
-                    b.Property<string>("PremiumJson")
-                        .HasColumnName("premium")
-                        .HasColumnType("json");
+                    b.Property<long?>("PremiumFinish")
+                        .HasColumnName("premium_finish");
+
+                    b.Property<long?>("PremiumStart")
+                        .HasColumnName("premium_start");
 
                     b.Property<string>("SName")
                         .HasColumnName("sname")

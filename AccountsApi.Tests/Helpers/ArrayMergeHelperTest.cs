@@ -1,8 +1,6 @@
 using System.Linq;
-using AccountsApi.Index.Infrastructure;
 using AccountsApi.Infrastructure;
 using AccountsApi.Infrastructure.Helpers;
-using AccountsApi.Infrastructure.Indexes;
 using AccountsApi.Models;
 using Newtonsoft.Json;
 using NUnit.Framework;

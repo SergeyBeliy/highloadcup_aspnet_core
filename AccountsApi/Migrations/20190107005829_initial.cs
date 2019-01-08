@@ -25,8 +25,10 @@ namespace AccountsApi.Migrations
                     joined = table.Column<DateTime>(nullable: false),
                     status = table.Column<string>(maxLength: 10, nullable: true),
                     interests = table.Column<string[]>(nullable: true),
-                    likes = table.Column<string[]>(type: "json[]", nullable: true),
-                    premium = table.Column<string>(type: "json", nullable: true)
+                    like_ids = table.Column<long[]>(nullable: true),
+                    like_tss = table.Column<long[]>(nullable: true),
+                    premium_start = table.Column<long>(nullable: true),
+                    premium_finish = table.Column<long>(nullable: true)
                 },
                 constraints: table =>
                 {

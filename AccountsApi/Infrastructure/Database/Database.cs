@@ -31,6 +31,7 @@ namespace AccountsApi.Database.Infrastructure {
             Logger = logger;
             AccountContext = accountContext;
         }
+        #region Initialization
 
         public void InitData (string initialDataPath) {
             Logger.Debug ($"Initializing...");
@@ -89,9 +90,11 @@ namespace AccountsApi.Database.Infrastructure {
                 .MapTimeStamp ("birth", x => x.Birth)
                 .MapTimeStamp ("joined", x => x.Joined)
                 .MapText ("status", x => x.Status)
-                .MapJson ("premium", x => x.PremiumJson)
+                .MapNullable ("premium_start", x => x.PremiumStart, NpgsqlDbType.Bigint)
+                .MapNullable ("premium_finish", x => x.PremiumFinish, NpgsqlDbType.Bigint)
                 .MapArray ("interests", x => x.Interests)
-                .MapArray ("likes", x => x.LikesJson, NpgsqlDbType.Json);
+                .MapArray ("like_ids", x => x.LikeIds)
+                .MapArray ("like_tss", x => x.LikeTSs);
 
             using (var connection = new NpgsqlConnection ("Host=localhost;Port=5432;Username=accountsdb_user;Password=Tester01;Database=accountsDB;")) {
                 connection.Open ();
@@ -100,12 +103,14 @@ namespace AccountsApi.Database.Infrastructure {
 
         }
 
+        #endregion
+
         public async Task Put (Account account) {
             AccountContext.Accounts.Add (account);
             await AccountContext.SaveChangesAsync ();
         }
 
-        public IEnumerable<Account> Query (Query query) {
+        public IEnumerable<Account> FilterQuery (FilterQuery query) {
             IEnumerable<Account> accountsQuery = AccountContext.Accounts;
 
             foreach (var queryItem in query.Items) {
@@ -115,6 +120,54 @@ namespace AccountsApi.Database.Infrastructure {
             return accountsQuery.OrderByDescending (s => s.Id).Take (query.Limit);
         }
 
+        public IEnumerable<AccountGroup> GroupQuery (GroupQuery query) {
+            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+
+            foreach (var queryItem in query.Items) {
+                accountsQuery = AddQueryItem (accountsQuery, queryItem);
+            }
+            IEnumerable<AccountGroup> groups;
+            switch (query.Keys) {
+                case "sex":
+                    groups = accountsQuery.GroupBy (s => s.Sex).Select (s => new AccountGroup {
+                        Count = s.Count (),
+                        Sex = s.Key.ToString ().ToLower ()
+                    });
+                    break;
+                case "status":
+                    groups = accountsQuery.Where(s => s.Status != null).GroupBy (s => s.Status).Select (s => new AccountGroup {
+                        Count = s.Count (),
+                        Status = s.Key?.ToString ().ToLower ()
+                    });
+                    break;
+                case "country":
+                    groups = accountsQuery.Where(s => s.Country != null).GroupBy (s => s.Country).Select (s => new AccountGroup {
+                        Count = s.Count (),
+                        Country = s.Key?.ToString ().ToLower ()
+                    });
+                    break;
+                case "city":
+                    groups = accountsQuery.Where(s => s.City != null).GroupBy (s => s.City).Select (s => new AccountGroup {
+                        Count = s.Count (),
+                        City = s.Key?.ToString ().ToLower ()
+                    });
+                    break;
+                case "interests":
+                    groups = accountsQuery.Where(s => s.Interests != null).SelectMany (s => s.Interests).GroupBy (s => s).Select (s => new AccountGroup {
+                        Count = s.Count (),
+                        Interests = s.Key?.ToString ().ToLower ()
+                    });
+                    break;
+                default:
+                    throw new Exception ($"Unsupported keys: {query.Keys}");
+            }
+            if (query.Order == 1) {
+                groups = groups.OrderBy (s => s.Count);
+            } else {
+                groups = groups.OrderByDescending (s => s.Count);
+            }
+            return groups.Take (query.Limit);
+        }
         private IEnumerable<Account> AddQueryItem (IEnumerable<Account> accounts, QueryItem queryItem) {
             switch (queryItem.FieldName) {
 
@@ -136,6 +189,8 @@ namespace AccountsApi.Database.Infrastructure {
                     return AddCityQuery (accounts, queryItem);
                 case "birth":
                     return AddBirthQuery (accounts, queryItem);
+                case "joined":
+                    return AddJoinedQuery (accounts, queryItem);
                 case "interests":
                     return AddInterestsQuery (accounts, queryItem);
                 case "likes":
@@ -153,7 +208,8 @@ namespace AccountsApi.Database.Infrastructure {
             if (!SexEnum.TryParse (queryItem.Value.ToLower (), out sex)) {
                 throw new Exception ($"Wrong value {queryItem.Value}");
             }
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.Sex == sex);
                 case Predicate.neq:
@@ -164,7 +220,11 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddEmailQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
+                case Predicate.eq:
+                    return accounts.Where (a => string.Equals (a.EMail, queryItem.Value, StringComparison.OrdinalIgnoreCase));
                 case Predicate.domain:
                     return accounts.Where (a => EF.Functions.Like (a.EMail, $"%@{queryItem.Value}"));
                 case Predicate.gt:
@@ -177,7 +237,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddStatusQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.Status == queryItem.Value);
                 case Predicate.neq:
@@ -188,7 +249,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddFNameQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.FName == queryItem.Value);
                 case Predicate.@null:
@@ -206,7 +268,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddSNameQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.SName == queryItem.Value);
                 case Predicate.@null:
@@ -223,7 +286,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddPhoneQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.@null:
                     if (queryItem.Value == "1")
                         return accounts.Where (a => string.IsNullOrEmpty (a.Phone));
@@ -232,13 +296,16 @@ namespace AccountsApi.Database.Infrastructure {
                     throw new Exception ($"Wrong value {queryItem.Value}");
                 case Predicate.code:
                     return accounts.Where (a => EF.Functions.Like (a.Phone, $"%({queryItem.Value})%"));
+                case Predicate.eq:
+                    return accounts.Where (a => string.Equals (a.Phone, queryItem.Value, StringComparison.OrdinalIgnoreCase));
                 default:
                     throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
             }
         }
 
         private IEnumerable<Account> AddCountryQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.Country == queryItem.Value);
                 case Predicate.@null:
@@ -253,7 +320,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddCityQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.eq;
+            switch (predicate) {
                 case Predicate.eq:
                     return accounts.Where (a => a.City == queryItem.Value);
                 case Predicate.@null:
@@ -271,11 +339,12 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private IEnumerable<Account> AddBirthQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
-            double value;
-            if (!Double.TryParse (queryItem.Value, out value)) {
+            long value;
+            if (!long.TryParse (queryItem.Value, out value)) {
                 throw new Exception ($"Wrong value {queryItem.Value}");
             }
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.year;
+            switch (predicate) {
                 case Predicate.gt:
                     var valueDate = SecondEpochConverter.ConvertFrom (value);
                     return accounts.Where (a => a.Birth > valueDate);
@@ -289,13 +358,34 @@ namespace AccountsApi.Database.Infrastructure {
             }
         }
 
+        private IEnumerable<Account> AddJoinedQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
+            long value;
+            if (!long.TryParse (queryItem.Value, out value)) {
+                throw new Exception ($"Wrong value {queryItem.Value}");
+            }
+            var predicate = queryItem.Predicate??Predicate.year;
+            switch (predicate) {
+                case Predicate.gt:
+                    var valueDate = SecondEpochConverter.ConvertFrom (value);
+                    return accounts.Where (a => a.Joined > valueDate);
+                case Predicate.lt:
+                    var valueDate1 = SecondEpochConverter.ConvertFrom (value);
+                    return accounts.Where (a => a.Joined < valueDate1);
+                case Predicate.year:
+                    return accounts.Where (a => a.Joined.Year == (int) value);
+                default:
+                    throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
+            }
+        }
+
         private IEnumerable<Account> AddInterestsQuery (IEnumerable<Account> accounts, QueryItem queryItem) {
             var values = queryItem.Value.Split (",");
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.any;
+            switch (predicate) {
                 case Predicate.any:
-                    return accounts.Where (a => values.Any (v => a.Interests.Any (i => i == v)));
+                    return accounts.Where (a => a.Interests != null && values.Any (v => a.Interests.Any (i => i == v)));
                 case Predicate.contains:
-                    return accounts.Where (a => values.All (v => a.Interests.Contains (v)));
+                    return accounts.Where (a => a.Interests != null && values.All (v => a.Interests.Contains (v)));
                 default:
                     throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
             }
@@ -309,9 +399,10 @@ namespace AccountsApi.Database.Infrastructure {
                 }
                 return id;
             });
-            switch (queryItem.Predicate) {
+            var predicate = queryItem.Predicate??Predicate.contains;
+            switch (predicate) {
                 case Predicate.contains:
-                    return accounts.Where (a => a.Likes != null && values.All (v => a.Likes.Any (l => l.Id == v)));
+                    return accounts.Where (a => a.LikeIds != null && values.All (v => a.LikeIds.Contains (v)));
                 default:
                     throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
             }
@@ -322,14 +413,14 @@ namespace AccountsApi.Database.Infrastructure {
             switch (queryItem.Predicate) {
                 case Predicate.@null:
                     if (queryItem.Value == "1")
-                        return accounts.Where (a => string.IsNullOrEmpty (a.PremiumJson));
+                        return accounts.Where (a => a.PremiumStart == null);
                     if (queryItem.Value == "0")
-                        return accounts.Where (a => !string.IsNullOrEmpty (a.PremiumJson));
+                        return accounts.Where (a => a.PremiumStart != null);
                     throw new Exception ($"Wrong value {queryItem.Value}");
 
                 case Predicate.now:
                     var now = SecondEpochConverter.ConvertTo (DateTime.UtcNow);
-                    return accounts.Where (a => a.PremiumJson != null && JsonConvert.DeserializeObject<PremiumModel> (a.PremiumJson).Start <= DateTime.UtcNow && JsonConvert.DeserializeObject<PremiumModel> (a.PremiumJson).Finish >= DateTime.UtcNow);
+                    return accounts.Where (a => a.PremiumStart != null && a.PremiumFinish != null && a.PremiumStart <= now && a.PremiumFinish >= now);
                 default:
                     throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
             }

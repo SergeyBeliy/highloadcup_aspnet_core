@@ -9,6 +9,8 @@ namespace AccountsApi.Database.Infrastructure {
         void InitData(string initialDataPath);
         Task Put(Account account);
 
-        IEnumerable<Account> Query(Query query);
+        IEnumerable<Account> FilterQuery(FilterQuery query);
+
+        IEnumerable<AccountGroup> GroupQuery (GroupQuery query);
     }
 }
