@@ -76,5 +76,28 @@ namespace AccountsApi.Controllers {
             }
 
         }
+
+        [HttpGet]
+        [Route ("accounts/{id}/suggest")]
+        public ActionResult<AccountSuggestResponse> Suggest (long id) {
+            try {
+                var query = RequestParser.ParseSuggest (Request.QueryString.Value);
+                query.AccountId = id;
+                if (!RequestParser.ValidateSuggestQuery (query)) {
+                    return BadRequest ();
+                }
+                var suggestions = _database.SuggestQuery (query);
+                if(suggestions == null){
+                    return NotFound();
+                }
+                return new AccountSuggestResponse (suggestions);
+            } catch (Exception ex) {
+                _logger.Error ("Unknown error", ex);
+                throw;
+            }
+
+        }
+    
+        
     }
 }

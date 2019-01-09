@@ -14,5 +14,7 @@ namespace AccountsApi.Database.Infrastructure {
         IEnumerable<AccountGroup> GroupQuery (GroupQuery query);
 
         IEnumerable<Recommendation> RecommendQuery (RecommendQuery query);
+
+        IEnumerable<Suggestion> SuggestQuery (SuggestQuery query);
     }
 }

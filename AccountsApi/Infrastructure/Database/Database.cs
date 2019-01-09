@@ -177,20 +177,65 @@ namespace AccountsApi.Database.Infrastructure {
             accountsQuery = accountsQuery.Where (s => s.Sex != account.Sex);
             var now = SecondEpochConverter.ConvertTo (DateTime.UtcNow);
             var recommendation = accountsQuery.Select (a => new {
-                Account = a,
-                Premium = ((a.PremiumStart??long.MaxValue) <= now && ((a.PremiumFinish??0) >= now)) ? 1000000000 : 0,
-                Status = GetStatusCount (a.Status),
-                Interests = InterestsComp (a.Interests, account.Interests),
-                AgeDif = Math.Abs((account.Birth - a.Birth).TotalSeconds)
-            })
-            .Where(r => r.Interests > 0)
-            .OrderByDescending(r => r.Premium)
-            .ThenByDescending(r =>r.Status)
-            .ThenByDescending(r => r.Interests)
-            .ThenBy(r => r.AgeDif)
-            .Select( r=> new Recommendation(r.Account))
-            .Take(query.Limit);
+                    Account = a,
+                        Premium = ((a.PremiumStart??long.MaxValue) <= now && ((a.PremiumFinish??0) >= now)) ? 1000000000 : 0,
+                        Status = GetStatusCount (a.Status),
+                        Interests = InterestsComp (a.Interests, account.Interests),
+                        AgeDif = Math.Abs ((account.Birth - a.Birth).TotalSeconds)
+                })
+                .Where (r => r.Interests > 0)
+                .OrderByDescending (r => r.Premium)
+                .ThenByDescending (r => r.Status)
+                .ThenByDescending (r => r.Interests)
+                .ThenBy (r => r.AgeDif)
+                .ThenBy (r => r.Account.Id)
+                .Select (r => new Recommendation (r.Account))
+                .Take (query.Limit);
             return recommendation;
+        }
+
+        public IEnumerable<Suggestion> SuggestQuery (SuggestQuery query) {
+            var account = AccountContext.Accounts.FirstOrDefault (s => s.Id == query.AccountId);
+            if (account == null) {
+                return null;
+            }
+            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+
+            accountsQuery = AddQueryItems (accountsQuery, query);
+            accountsQuery = accountsQuery.Where (s => s.Sex == account.Sex);
+            var allLikes = accountsQuery.Select (a => new {
+                    Account = a,
+                        Similarity = GetSimilarity (account, a),
+                })
+                .OrderByDescending (s => s.Similarity)
+                .SelectMany (s => s.Account.LikeIds.OrderBy (f => f))
+                .Where (s => !account.LikeIds.Contains (s))
+                .Take (query.Limit).ToArray();
+            return AccountContext.Accounts.Where(a => allLikes.Contains(a.Id)).Select(a => new Suggestion(a));
+        }
+
+        private float GetSimilarity (Account a1, Account a2) {
+            if (a1.LikeIds == null)
+                return 0;
+            if (a2.LikeIds == null)
+                return 0;
+            var dict1 = GetLikesDictionary (a1);
+            var dict2 = GetLikesDictionary (a2);
+            var matchLikes = dict1.Keys.Intersect (dict2.Keys);
+            return matchLikes.Select (s => 1 / Math.Abs (dict1[s] - dict2[s])).Sum ();
+        }
+
+        private Dictionary<long, long> GetLikesDictionary (Account account) {
+            var dic = new Dictionary<long, long> ();
+            if (account.LikeIds != null) {
+                for (int i = 0; i < account.LikeIds.Length; i++) {
+                    if (dic.ContainsKey (account.LikeIds[i])) {
+                        dic[account.LikeIds[i]] = (dic[account.LikeIds[i]] + account.LikeTSs[i]) / 2;
+                    } else
+                        dic[account.LikeIds[i]] = account.LikeTSs[i];
+                }
+            }
+            return dic;
         }
 
         private long GetStatusCount (string status) {
@@ -202,8 +247,8 @@ namespace AccountsApi.Database.Infrastructure {
         }
 
         private long InterestsComp (string[] interests1, string[] interests2) {
-            if(interests1 == null) return 0;
-            if(interests2 == null) return 0;
+            if (interests1 == null) return 0;
+            if (interests2 == null) return 0;
             return interests1.Intersect (interests2).Count () * 100000;
         }
         private IEnumerable<Account> AddQueryItem (IEnumerable<Account> accounts, QueryItem queryItem) {

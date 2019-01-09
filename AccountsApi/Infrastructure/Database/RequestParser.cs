@@ -61,6 +61,9 @@ namespace AccountsApi.Infrastructure.Database {
         public static RecommendQuery ParseRecommend (string queryString) {
             return ParseQuery<RecommendQuery> (queryString);
         }
+        public static SuggestQuery ParseSuggest (string queryString) {
+            return ParseQuery<SuggestQuery> (queryString);
+        }
 
         public static bool ValidateFilterQuery (FilterQuery query) {
             if (query.Limit <= 0) {
@@ -106,6 +109,11 @@ namespace AccountsApi.Infrastructure.Database {
                 return false;
             }
             return true;
+        }
+
+        public static bool ValidateSuggestQuery (SuggestQuery query) {
+            
+            return ValidateRecommendQuery(query);
         }
 
         private static T ParseQuery<T> (string queryString) where T : QueryBase, new() {
