@@ -208,7 +208,7 @@ namespace AccountsApi.Database.Infrastructure {
                         Similarity = GetSimilarity (account, a),
                 })
                 .OrderByDescending (s => s.Similarity)
-                .SelectMany (s => s.Account.LikeIds.OrderBy (f => f))
+                .SelectMany (s => s.Account.LikeIds.OrderByDescending (f => f))
                 .Where (s => !account.LikeIds.Contains (s))
                 .Take (query.Limit).ToArray();
             return AccountContext.Accounts.Where(a => allLikes.Contains(a.Id)).Select(a => new Suggestion(a));
