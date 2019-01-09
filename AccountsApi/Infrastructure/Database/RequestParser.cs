@@ -19,26 +19,8 @@ namespace AccountsApi.Infrastructure.Database {
             { "premium", new Predicate[] { Predicate.@null, Predicate.now } },
         };
         public static FilterQuery ParseFilter (string queryString) {
-            var result = new FilterQuery ();
-            var queryItems = new List<QueryItem> ();
-            var dict = QueryHelpers.ParseQuery (queryString);
-            foreach (var item in dict) {
-                if (item.Key.Equals ("query_id", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (item.Key.Equals ("limit", StringComparison.OrdinalIgnoreCase)) {
-                    int limit;
-                    if (int.TryParse (item.Value.ToString (), out limit)) {
-                        result.Limit = limit;
-                    }
-                    continue;
-                }
-                queryItems.Add (new QueryItem () {
-                    Key = item.Key,
-                        Value = item.Value.ToString ()
-                });
-            }
-            result.Items = queryItems;
-            return result;
+
+            return ParseQuery<FilterQuery> (queryString);
         }
 
         public static GroupQuery ParseGroup (string queryString) {
@@ -75,6 +57,11 @@ namespace AccountsApi.Infrastructure.Database {
             result.Items = queryItems;
             return result;
         }
+
+        public static RecommendQuery ParseRecommend (string queryString) {
+            return ParseQuery<RecommendQuery> (queryString);
+        }
+
         public static bool ValidateFilterQuery (FilterQuery query) {
             if (query.Limit <= 0) {
                 return false;
@@ -109,6 +96,39 @@ namespace AccountsApi.Infrastructure.Database {
                 }
             }
             return true;
+        }
+
+        public static bool ValidateRecommendQuery (RecommendQuery query) {
+            if (query.Items.Any (s => s.Key != "city" && s.Key != "country")) {
+                return false;
+            }
+            if (query.Limit <= 0 || query.Limit > 20) {
+                return false;
+            }
+            return true;
+        }
+
+        private static T ParseQuery<T> (string queryString) where T : QueryBase, new() {
+            var result = new T ();
+            var queryItems = new List<QueryItem> ();
+            var dict = QueryHelpers.ParseQuery (queryString);
+            foreach (var item in dict) {
+                if (item.Key.Equals ("query_id", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (item.Key.Equals ("limit", StringComparison.OrdinalIgnoreCase)) {
+                    int limit;
+                    if (int.TryParse (item.Value.ToString (), out limit)) {
+                        result.Limit = limit;
+                    }
+                    continue;
+                }
+                queryItems.Add (new QueryItem () {
+                    Key = item.Key,
+                        Value = item.Value.ToString ()
+                });
+            }
+            result.Items = queryItems;
+            return result;
         }
     }
 }

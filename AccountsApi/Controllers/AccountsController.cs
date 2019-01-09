@@ -45,15 +45,36 @@ namespace AccountsApi.Controllers {
                 if (!RequestParser.ValidateGroupQuery (query)) {
                     return BadRequest ();
                 }
-                var groups = _database.GroupQuery(query);
-                var t = new AccountGroupResponse{
-                    Groups = groups.ToArray(),
+                var groups = _database.GroupQuery (query);
+                var t = new AccountGroupResponse {
+                    Groups = groups.ToArray (),
                 };
                 return t;
             } catch (Exception ex) {
                 _logger.Error ("Unknown error", ex);
                 throw;
             }
+        }
+
+        [HttpGet]
+        [Route ("accounts/{id}/recommend")]
+        public ActionResult<AccountRecommendResponse> Recommended (long id) {
+            try {
+                var query = RequestParser.ParseRecommend (Request.QueryString.Value);
+                query.AccountId = id;
+                if (!RequestParser.ValidateRecommendQuery (query)) {
+                    return BadRequest ();
+                }
+                var recommendations = _database.RecommendQuery (query);
+                if(recommendations == null){
+                    return NotFound();
+                }
+                return new AccountRecommendResponse (recommendations);
+            } catch (Exception ex) {
+                _logger.Error ("Unknown error", ex);
+                throw;
+            }
+
         }
     }
 }

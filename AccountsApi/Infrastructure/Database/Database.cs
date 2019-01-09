@@ -113,9 +113,7 @@ namespace AccountsApi.Database.Infrastructure {
         public IEnumerable<Account> FilterQuery (FilterQuery query) {
             IEnumerable<Account> accountsQuery = AccountContext.Accounts;
 
-            foreach (var queryItem in query.Items) {
-                accountsQuery = AddQueryItem (accountsQuery, queryItem);
-            }
+            accountsQuery = AddQueryItems (accountsQuery, query);
 
             return accountsQuery.OrderByDescending (s => s.Id).Take (query.Limit);
         }
@@ -123,39 +121,38 @@ namespace AccountsApi.Database.Infrastructure {
         public IEnumerable<AccountGroup> GroupQuery (GroupQuery query) {
             IEnumerable<Account> accountsQuery = AccountContext.Accounts;
 
-            foreach (var queryItem in query.Items) {
-                accountsQuery = AddQueryItem (accountsQuery, queryItem);
-            }
+            accountsQuery = AddQueryItems (accountsQuery, query);
+
             IEnumerable<AccountGroup> groups;
             switch (query.Keys) {
                 case "sex":
                     groups = accountsQuery.GroupBy (s => s.Sex).Select (s => new AccountGroup {
                         Count = s.Count (),
-                        Sex = s.Key.ToString ().ToLower ()
+                            Sex = s.Key.ToString ().ToLower ()
                     });
                     break;
                 case "status":
-                    groups = accountsQuery.Where(s => s.Status != null).GroupBy (s => s.Status).Select (s => new AccountGroup {
+                    groups = accountsQuery.Where (s => s.Status != null).GroupBy (s => s.Status).Select (s => new AccountGroup {
                         Count = s.Count (),
-                        Status = s.Key?.ToString ().ToLower ()
+                            Status = s.Key?.ToString ().ToLower ()
                     });
                     break;
                 case "country":
-                    groups = accountsQuery.Where(s => s.Country != null).GroupBy (s => s.Country).Select (s => new AccountGroup {
+                    groups = accountsQuery.Where (s => s.Country != null).GroupBy (s => s.Country).Select (s => new AccountGroup {
                         Count = s.Count (),
-                        Country = s.Key?.ToString ().ToLower ()
+                            Country = s.Key?.ToString ().ToLower ()
                     });
                     break;
                 case "city":
-                    groups = accountsQuery.Where(s => s.City != null).GroupBy (s => s.City).Select (s => new AccountGroup {
+                    groups = accountsQuery.Where (s => s.City != null).GroupBy (s => s.City).Select (s => new AccountGroup {
                         Count = s.Count (),
-                        City = s.Key?.ToString ().ToLower ()
+                            City = s.Key?.ToString ().ToLower ()
                     });
                     break;
                 case "interests":
-                    groups = accountsQuery.Where(s => s.Interests != null).SelectMany (s => s.Interests).GroupBy (s => s).Select (s => new AccountGroup {
+                    groups = accountsQuery.Where (s => s.Interests != null).SelectMany (s => s.Interests).GroupBy (s => s).Select (s => new AccountGroup {
                         Count = s.Count (),
-                        Interests = s.Key?.ToString ().ToLower ()
+                            Interests = s.Key?.ToString ().ToLower ()
                     });
                     break;
                 default:
@@ -167,6 +164,47 @@ namespace AccountsApi.Database.Infrastructure {
                 groups = groups.OrderByDescending (s => s.Count);
             }
             return groups.Take (query.Limit);
+        }
+
+        public IEnumerable<Recommendation> RecommendQuery (RecommendQuery query) {
+            var account = AccountContext.Accounts.FirstOrDefault (s => s.Id == query.AccountId);
+            if (account == null) {
+                return null;
+            }
+            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+
+            accountsQuery = AddQueryItems (accountsQuery, query);
+            accountsQuery = accountsQuery.Where (s => s.Sex != account.Sex);
+            var now = SecondEpochConverter.ConvertTo (DateTime.UtcNow);
+            var recommendation = accountsQuery.Select (a => new {
+                Account = a,
+                Premium = ((a.PremiumStart??long.MaxValue) <= now && ((a.PremiumFinish??0) >= now)) ? 1000000000 : 0,
+                Status = GetStatusCount (a.Status),
+                Interests = InterestsComp (a.Interests, account.Interests),
+                AgeDif = Math.Abs((account.Birth - a.Birth).TotalSeconds)
+            })
+            .Where(r => r.Interests > 0)
+            .OrderByDescending(r => r.Premium)
+            .ThenByDescending(r =>r.Status)
+            .ThenByDescending(r => r.Interests)
+            .ThenBy(r => r.AgeDif)
+            .Select( r=> new Recommendation(r.Account))
+            .Take(query.Limit);
+            return recommendation;
+        }
+
+        private long GetStatusCount (string status) {
+            if (status == "свободны")
+                return 900000000;
+            if (status == "всё сложно")
+                return 800000000;
+            return 700000000;
+        }
+
+        private long InterestsComp (string[] interests1, string[] interests2) {
+            if(interests1 == null) return 0;
+            if(interests2 == null) return 0;
+            return interests1.Intersect (interests2).Count () * 100000;
         }
         private IEnumerable<Account> AddQueryItem (IEnumerable<Account> accounts, QueryItem queryItem) {
             switch (queryItem.FieldName) {
@@ -424,6 +462,14 @@ namespace AccountsApi.Database.Infrastructure {
                 default:
                     throw new Exception ($"Unsupportend predicate {queryItem.Predicate}");
             }
+        }
+
+        private IEnumerable<Account> AddQueryItems (IEnumerable<Account> accountsQuery, QueryBase query) {
+            foreach (var queryItem in query.Items) {
+                accountsQuery = AddQueryItem (accountsQuery, queryItem);
+            }
+            return accountsQuery;
+
         }
     }
 }
