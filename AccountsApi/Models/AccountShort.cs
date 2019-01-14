@@ -37,7 +37,7 @@ namespace AccountsApi.Models {
         public string EMail { get; set; }
 
         [JsonConverter (typeof (StringEnumConverter))]
-        public SexEnum Sex { get; set; }
+        public SexEnum? Sex { get; set; }
 
         [JsonConverter (typeof (SecondEpochConverter))]
         public DateTime Birth { get; set; }

@@ -38,7 +38,7 @@ namespace AccountsApi.Models {
         public string EMail { get; set; }
 
         [Column ("sex")]
-        public SexEnum Sex { get; set; }
+        public SexEnum? Sex { get; set; }
 
         [Column ("birth")]
         [JsonConverter (typeof (SecondEpochConverter))]

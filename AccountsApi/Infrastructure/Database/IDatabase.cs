@@ -9,6 +9,10 @@ namespace AccountsApi.Database.Infrastructure {
         void InitData(string initialDataPath);
         Task Put(Account account);
 
+        Task<bool> Update(Account account);
+
+        Task UpdateLikes(LikeUpdateModel[] likes);
+
         IEnumerable<Account> FilterQuery(FilterQuery query);
 
         IEnumerable<AccountGroup> GroupQuery (GroupQuery query);

@@ -7,3 +7,6 @@ tmp/data/data.zip
 AccountsApi.Tests/bin/*
 AccountsApi.Tests/obj/*
 tmp/data/options.txt
+.vs/highloadcup_aspnet_core/v15/.suo
+.vs/highloadcup_aspnet_core/v15/sqlite3/storage.ide
+
