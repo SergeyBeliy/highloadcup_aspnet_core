@@ -1,114 +1,47 @@
-FROM microsoft/dotnet:2.2-sdk AS build-env
-WORKDIR /app
-
-# Copy csproj and restore as distinct layers
-COPY /AccountsApi/*.csproj ./
-RUN dotnet restore
-
-
-# Copy everything else and build
-COPY ./AccountsApi/ ./
-RUN dotnet publish -c Release -o out
-
 # Build runtime image
-FROM microsoft/dotnet:2.2-aspnetcore-runtime
+FROM postgres
 WORKDIR /app
-COPY --from=build-env /app/out .
 
 # Copy test data
-COPY tmp/ /tmp/
-RUN ls -la /tmp/*
 
 RUN apt-get update \
-    && mkdir -p /usr/share/man/man1 \
-    && mkdir -p /usr/share/man/man7 \
-    && apt-get install -y --no-install-recommends postgresql \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean 
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        \
+# .NET Core dependencies
+        libc6 \
+        libgcc1 \
+        libgssapi-krb5-2 \
+        libicu57 \
+        liblttng-ust0 \
+        libssl1.0.2 \
+        libstdc++6 \
+        zlib1g \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
 
-USER postgres
+# Configure web servers to bind to port 80 when present
+ENV ASPNETCORE_URLS=http://+:80 \
+    # Enable detection of running in a container
+    DOTNET_RUNNING_IN_CONTAINER=true
 
-RUN  /etc/init.d/postgresql start &&\
-    psql --command "CREATE USER accountsdb_user WITH LOGIN NOSUPERUSER INHERIT CREATEDB NOCREATEROLE REPLICATION PASSWORD 'Tester01';" \ 
-    &&\
-    psql --command "CREATE SEQUENCE public.accounts_id_seq; ALTER SEQUENCE public.accounts_id_seq OWNER TO accountsdb_user;" \
-    &&\
-    psql --command "CREATE SEQUENCE public.like_like_id_seq;ALTER SEQUENCE public.like_like_id_seq OWNER TO accountsdb_user;" \
-    &&\
-    psql --command "CREATE SEQUENCE public.premium_id_seq;ALTER SEQUENCE public.premium_id_seq OWNER TO accountsdb_user;" \
-    && \
-    psql --command "CREATE TABLE public.accounts \
-    ( \
-        id bigint NOT NULL DEFAULT nextval('accounts_id_seq'::regclass), \
-        sname character varying(50) COLLATE pg_catalog.""default"",\
-        fname character varying(50) COLLATE pg_catalog.""default"", \
-        country character varying(50) COLLATE pg_catalog.""default"", \
-        city character varying(50) COLLATE pg_catalog.""default"", \
-        phone character varying(16) COLLATE pg_catalog.""default"", \
-        email character varying(100) COLLATE pg_catalog.""default"", \
-        sex integer NOT NULL, \
-        birth bigint NOT NULL, \
-        joined bigint NOT NULL, \
-        status character varying(10) COLLATE pg_catalog.""default"", \
-        interests text[] COLLATE pg_catalog.""default"", \
-        CONSTRAINT ""PK_accounts"" PRIMARY KEY (id) \
-    ) \
-    WITH ( \
-        OIDS = FALSE \
-    ) \
-    TABLESPACE pg_default; \
-    ALTER TABLE public.accounts \
-        OWNER to accountsdb_user;  \
-    CREATE TABLE public.""like"" \
-    ( \
-        like_id bigint NOT NULL DEFAULT nextval('like_like_id_seq'::regclass), \
-        account_id bigint NOT NULL, \
-        id bigint NOT NULL, \
-        ts bigint NOT NULL, \
-        CONSTRAINT ""PK_like"" PRIMARY KEY (like_id), \
-        CONSTRAINT ""FK_like_accounts_account_id"" FOREIGN KEY (account_id) \
-            REFERENCES public.accounts (id) MATCH SIMPLE \
-            ON UPDATE NO ACTION \
-            ON DELETE CASCADE \
-    ) \
-    WITH ( \
-        OIDS = FALSE \
-    ) \
-    TABLESPACE pg_default; \
-    ALTER TABLE public.""like"" \
-        OWNER to accountsdb_user; \
-    CREATE INDEX ""IX_like_account_id"" \
-        ON public.""like"" USING btree \
-        (account_id) \
-        TABLESPACE pg_default;\ 
-        CREATE TABLE public.premium \
-        ( \
-            id bigint NOT NULL DEFAULT nextval('premium_id_seq'::regclass), \
-            account_id bigint NOT NULL, \
-            start bigint NOT NULL, \
-            finish bigint NOT NULL, \
-            CONSTRAINT ""PK_premium"" PRIMARY KEY (id), \
-            CONSTRAINT ""FK_premium_accounts_account_id"" FOREIGN KEY (account_id) \
-                REFERENCES public.accounts (id) MATCH SIMPLE \
-                ON UPDATE NO ACTION \
-                ON DELETE CASCADE \
-        ) \
-        WITH ( \
-            OIDS = FALSE \
-        ) \
-        TABLESPACE pg_default; \
-        ALTER TABLE public.premium \
-            OWNER to accountsdb_user; \
-        CREATE UNIQUE INDEX ""IX_premium_account_id"" \
-            ON public.premium USING btree \
-            (account_id) \
-            TABLESPACE pg_default;" 
+# Install ASP.NET Core
+ENV ASPNETCORE_VERSION 2.2.0
 
-USER root
+RUN curl -SL --output aspnetcore.tar.gz https://dotnetcli.blob.core.windows.net/dotnet/aspnetcore/Runtime/$ASPNETCORE_VERSION/aspnetcore-runtime-$ASPNETCORE_VERSION-linux-x64.tar.gz \
+    && aspnetcore_sha512='26b3a52eb0b55eedaf731af1c1553653c73ed8e7c385119a421e33c8fca9691bae378904ee8f6fc13e1c621c9d64303ea5337750bb34e34d6ad0de788319f9bc' \
+    && echo "$aspnetcore_sha512  aspnetcore.tar.gz" | sha512sum -c - \
+    && mkdir -p /usr/share/dotnet \
+    && tar -zxf aspnetcore.tar.gz -C /usr/share/dotnet \
+    && rm aspnetcore.tar.gz \
+    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
+COPY /AccountsApi/out .
+COPY /tmp/ ../tmp/
 
-ENV PATH $PATH:/usr/lib/postgresql/9.6/bin
-ENV PGDATA /var/lib/postgresql/data
+COPY start-container.sh /usr/lib/postgresql/$PG_MAJOR/bin/start-container.sh
 
-CMD ["../etc/init.d/postgresql start"]
-ENTRYPOINT ["dotnet", "AccountsApi.dll"]
+COPY db_init.sql /docker-entrypoint-initdb.d/
+
+ENTRYPOINT ["start-container.sh"]
+

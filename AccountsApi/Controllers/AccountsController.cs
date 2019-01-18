@@ -36,7 +36,7 @@ namespace AccountsApi.Controllers
                     return BadRequest();
                 }
                 var accounts = _database.FilterQuery(query);
-                return new AccountFilterResponse(accounts);
+                return new AccountFilterResponse(accounts, query);
             }
             catch (Exception ex)
             {

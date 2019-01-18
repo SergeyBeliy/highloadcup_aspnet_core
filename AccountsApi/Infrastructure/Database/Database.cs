@@ -11,6 +11,7 @@ using AccountsApi.Infrastructure.Helpers;
 using AccountsApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
@@ -21,18 +22,17 @@ namespace AccountsApi.Database.Infrastructure
     public class Database : IDatabase
     {
         private const string UnzipperFolderName = "unzippedData";
-        private long LikeIdCounter = 1;
-        private long PremiumIdCounter = 1;
-
-        // private ConcurrentDictionary<long, Account> _accounts = new ConcurrentDictionary<long, Account> ();
-
+       
         private ILogger Logger { get; set; }
 
         private AccountContext AccountContext { get; set; }
-        public Database(ILogger logger, AccountContext accountContext)
+
+        IConfiguration Configuration { get; set;}
+        public Database(ILogger logger, AccountContext accountContext, IConfiguration configuration)
         {
             Logger = logger;
             AccountContext = accountContext;
+            Configuration = configuration;
         }
         #region Initialization
 
@@ -111,7 +111,7 @@ namespace AccountsApi.Database.Infrastructure
                 .MapArray("like_ids", x => x.LikeIds)
                 .MapArray("like_tss", x => x.LikeTSs);
 
-            using (var connection = new NpgsqlConnection("Host=localhost;Port=5432;Username=accountsdb_user;Password=Tester01;Database=accountsDB;"))
+            using (var connection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
             {
                 connection.Open();
                 helperAccounts.SaveAll(connection, accounts);
@@ -205,7 +205,7 @@ namespace AccountsApi.Database.Infrastructure
         }
         public IEnumerable<Account> FilterQuery(FilterQuery query)
         {
-            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+            IQueryable<Account> accountsQuery = AccountContext.Accounts;
 
             accountsQuery = AddQueryItems(accountsQuery, query);
 
@@ -214,11 +214,11 @@ namespace AccountsApi.Database.Infrastructure
 
         public IEnumerable<AccountGroup> GroupQuery(GroupQuery query)
         {
-            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+            IQueryable<Account> accountsQuery = AccountContext.Accounts;
 
             accountsQuery = AddQueryItems(accountsQuery, query);
 
-            IEnumerable<AccountGroup> groups;
+            IQueryable<AccountGroup> groups;
             switch (query.Keys)
             {
                 case "sex":
@@ -232,28 +232,28 @@ namespace AccountsApi.Database.Infrastructure
                     groups = accountsQuery.Where(s => s.Status != null).GroupBy(s => s.Status).Select(s => new AccountGroup
                     {
                         Count = s.Count(),
-                        Status = s.Key?.ToString().ToLower()
+                        Status = s.Key.ToString().ToLower()
                     });
                     break;
                 case "country":
                     groups = accountsQuery.Where(s => s.Country != null).GroupBy(s => s.Country).Select(s => new AccountGroup
                     {
                         Count = s.Count(),
-                        Country = s.Key?.ToString().ToLower()
+                        Country = s.Key.ToString().ToLower()
                     });
                     break;
                 case "city":
                     groups = accountsQuery.Where(s => s.City != null).GroupBy(s => s.City).Select(s => new AccountGroup
                     {
                         Count = s.Count(),
-                        City = s.Key?.ToString().ToLower()
+                        City = s.Key.ToString().ToLower()
                     });
                     break;
                 case "interests":
                     groups = accountsQuery.Where(s => s.Interests != null).SelectMany(s => s.Interests).GroupBy(s => s).Select(s => new AccountGroup
                     {
                         Count = s.Count(),
-                        Interests = s.Key?.ToString().ToLower()
+                        Interests = s.Key.ToString().ToLower()
                     });
                     break;
                 default:
@@ -277,7 +277,7 @@ namespace AccountsApi.Database.Infrastructure
             {
                 return null;
             }
-            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+            IQueryable<Account> accountsQuery = AccountContext.Accounts;
 
             accountsQuery = AddQueryItems(accountsQuery, query);
             accountsQuery = accountsQuery.Where(s => s.Sex != account.Sex);
@@ -308,7 +308,7 @@ namespace AccountsApi.Database.Infrastructure
             {
                 return null;
             }
-            IEnumerable<Account> accountsQuery = AccountContext.Accounts;
+            IQueryable<Account> accountsQuery = AccountContext.Accounts;
 
             accountsQuery = AddQueryItems(accountsQuery, query);
             accountsQuery = accountsQuery.Where(s => s.Sex == account.Sex);
@@ -369,7 +369,7 @@ namespace AccountsApi.Database.Infrastructure
             if (interests2 == null) return 0;
             return interests1.Intersect(interests2).Count() * 100000;
         }
-        private IEnumerable<Account> AddQueryItem(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddQueryItem(IQueryable<Account> accounts, QueryItem queryItem)
         {
             switch (queryItem.FieldName)
             {
@@ -406,7 +406,7 @@ namespace AccountsApi.Database.Infrastructure
             // return accounts;
         }
 
-        private IEnumerable<Account> AddSexQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddSexQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             SexEnum sex;
             if (!SexEnum.TryParse(queryItem.Value.ToLower(), out sex))
@@ -425,7 +425,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddEmailQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddEmailQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
 
             var predicate = queryItem.Predicate ?? Predicate.eq;
@@ -444,7 +444,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddStatusQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddStatusQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -458,7 +458,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddFNameQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddFNameQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -479,7 +479,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddSNameQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddSNameQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -499,7 +499,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddPhoneQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddPhoneQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -519,7 +519,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddCountryQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddCountryQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -537,7 +537,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddCityQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddCityQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var predicate = queryItem.Predicate ?? Predicate.eq;
             switch (predicate)
@@ -558,7 +558,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddBirthQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddBirthQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             long value;
             if (!long.TryParse(queryItem.Value, out value))
@@ -581,7 +581,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddJoinedQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddJoinedQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             long value;
             if (!long.TryParse(queryItem.Value, out value))
@@ -604,7 +604,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddInterestsQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddInterestsQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var values = queryItem.Value.Split(",");
             var predicate = queryItem.Predicate ?? Predicate.any;
@@ -619,7 +619,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddLikesQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddLikesQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
             var values = queryItem.Value.Split(",").Select(v =>
             {
@@ -640,7 +640,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddPremiumQuery(IEnumerable<Account> accounts, QueryItem queryItem)
+        private IQueryable<Account> AddPremiumQuery(IQueryable<Account> accounts, QueryItem queryItem)
         {
 
             switch (queryItem.Predicate)
@@ -660,7 +660,7 @@ namespace AccountsApi.Database.Infrastructure
             }
         }
 
-        private IEnumerable<Account> AddQueryItems(IEnumerable<Account> accountsQuery, QueryBase query)
+        private IQueryable<Account> AddQueryItems(IQueryable<Account> accountsQuery, QueryBase query)
         {
             foreach (var queryItem in query.Items)
             {

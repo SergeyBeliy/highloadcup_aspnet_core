@@ -10,6 +10,7 @@ using AccountsApi.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Buffering;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,7 @@ namespace AccountsApi {
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure (IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider) {
+            app.UseResponseBuffering();
             if (env.IsDevelopment ()) {
                 app.UseDeveloperExceptionPage ();
             } else {
