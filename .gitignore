@@ -12,3 +12,4 @@ tmp/data/options.txt
 
 AccountsApi.Tank.Test/obj/*
 AccountsApi.Tests/out/*
+TestData/*

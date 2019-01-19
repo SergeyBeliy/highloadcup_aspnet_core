@@ -1,0 +1,1 @@
+ docker run --rm --name mycontainer -p 8080:80 -p 5555:5432 -t aspnetcore

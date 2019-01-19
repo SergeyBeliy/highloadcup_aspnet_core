@@ -1,4 +1,4 @@
-rmdir /Q /S g:\_MyProjects\_Highloadcup\highloadcup_aspnet_core\AccountsApi\out 
+rmdir /Q /S C:\_MyProjects\highloadcup_aspnet_core\AccountsApi\out 
 
 dotnet publish -c Release -o out .\AccountsApi\AccountsApi.csproj
 

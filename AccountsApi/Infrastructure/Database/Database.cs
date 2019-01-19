@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -22,12 +23,12 @@ namespace AccountsApi.Database.Infrastructure
     public class Database : IDatabase
     {
         private const string UnzipperFolderName = "unzippedData";
-       
+
         private ILogger Logger { get; set; }
 
         private AccountContext AccountContext { get; set; }
 
-        IConfiguration Configuration { get; set;}
+        IConfiguration Configuration { get; set; }
         public Database(ILogger logger, AccountContext accountContext, IConfiguration configuration)
         {
             Logger = logger;
@@ -86,6 +87,20 @@ namespace AccountsApi.Database.Infrastructure
                     Logger.Error($"Parse file {file} error", ex);
                 }
             }
+
+            Logger.Debug($"Start Reindex table..");
+            using (var connection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
+            {
+                connection.Open();
+                var command = connection.CreateCommand();
+                command.CommandTimeout = 120;
+                command.CommandType = CommandType.Text;
+                command.CommandText = "REINDEX TABLE accounts;";
+                command.ExecuteNonQuery();
+                command.Dispose();
+            }
+
+            Logger.Debug($"End Reindex table");
 
             Logger.Debug($"Parse files: {UnzipperFolderName} success");
 
@@ -277,7 +292,7 @@ namespace AccountsApi.Database.Infrastructure
             {
                 return null;
             }
-            IQueryable<Account> accountsQuery = AccountContext.Accounts;
+            IQueryable<Account> accountsQuery = AccountContext.Accounts;//.FromSql("");
 
             accountsQuery = AddQueryItems(accountsQuery, query);
             accountsQuery = accountsQuery.Where(s => s.Sex != account.Sex);
@@ -333,7 +348,7 @@ namespace AccountsApi.Database.Infrastructure
             var dict1 = GetLikesDictionary(a1);
             var dict2 = GetLikesDictionary(a2);
             var matchLikes = dict1.Keys.Intersect(dict2.Keys);
-            return matchLikes.Select(s => 1 / Math.Abs(dict1[s] - dict2[s])).Sum();
+            return matchLikes.Select(s => 1 / Math.Abs((dict1[s] - dict2[s]) == 0 ? 1 : (dict1[s] - dict2[s]))).Sum();
         }
 
         private Dictionary<long, long> GetLikesDictionary(Account account)

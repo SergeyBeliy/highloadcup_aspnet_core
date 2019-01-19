@@ -108,6 +108,9 @@ namespace AccountsApi.Infrastructure.Database {
             if (query.Limit <= 0 || query.Limit > 20) {
                 return false;
             }
+            if(query.Items.Any(s => string.IsNullOrEmpty(s.Value))){
+                return false;
+            }
             return true;
         }
 

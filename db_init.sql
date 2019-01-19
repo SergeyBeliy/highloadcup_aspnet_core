@@ -125,3 +125,17 @@ ALTER TABLE ONLY public.accounts
 -- PostgreSQL database dump complete
 --
 
+CREATE INDEX accounts_birth__idx
+    ON public.accounts USING btree
+    (birth)
+    TABLESPACE pg_default;
+
+CREATE INDEX accounts_for_eq__idx
+    ON public.accounts USING btree
+    (sex, status COLLATE pg_catalog."default", fname COLLATE pg_catalog."default", sname COLLATE pg_catalog."default", country COLLATE pg_catalog."default", city COLLATE pg_catalog."default", interests COLLATE pg_catalog."default")
+    TABLESPACE pg_default;
+
+CREATE INDEX accounts_premium__idx
+    ON public.accounts USING btree
+    (premium_start, premium_finish)
+    TABLESPACE pg_default;
